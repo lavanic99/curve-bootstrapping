@@ -129,9 +129,15 @@ python3 plot_conversions.py     # convention-basis plot
 
 # 2. corporate credit curves (needs FRED_API_KEY)
 cd ../CORPORATE
+cp .env.example .env             # then paste your free FRED key into .env
 python3 credit_curves.py        # AA/A/BBB curves + spread decomposition plot
 python3 conversions.py          # quotable loan rates in deal conventions + plot
 ```
+
+Get a free FRED API key at <https://fredaccount.stlouisfed.org/apikeys>. The
+real `.env` is gitignored; `CORPORATE/.env.example` shows the expected format.
+If FRED is unreachable the corporate stage falls back to manual spreads, so the
+key is not strictly required to run the pipeline.
 
 ---
 
