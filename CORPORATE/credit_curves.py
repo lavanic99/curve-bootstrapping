@@ -41,9 +41,17 @@ import sofr_pipeline as sofr            # noqa: E402
 import rate_converter as rc            # noqa: E402
 
 FRED_OBS = "https://api.stlouisfed.org/fred/series/observations"
-RATING_SERIES = {"AA": "BAMLC0A2CAA", "A": "BAMLC0A3CA", "BBB": "BAMLC0A4CBBB"}
-RATINGS = ["AA", "A", "BBB"]
-MANUAL_OAS = {"AA": 0.0050, "A": 0.0063, "BBB": 0.0093}
+# Full rating ladder — ICE BofA OAS. IG ratings use the C-series (over
+# Treasuries); HY ratings (BB/B/CCC) use the H-series. All are converted to a
+# spread over SOFR downstream (× IG maturity shape + Treasury-SOFR basis).
+RATING_SERIES = {
+    "AAA": "BAMLC0A1CAAA", "AA": "BAMLC0A2CAA", "A": "BAMLC0A3CA", "BBB": "BAMLC0A4CBBB",
+    "BB": "BAMLH0A1HYBB", "B": "BAMLH0A2HYB", "CCC": "BAMLH0A3HYC",
+}
+RATINGS = ["AAA", "AA", "A", "BBB", "BB", "B", "CCC"]
+# Last-known levels (decimals) — fallback only if FRED is unreachable.
+MANUAL_OAS = {"AAA": 0.0038, "AA": 0.0052, "A": 0.0063, "BBB": 0.0095,
+              "BB": 0.0167, "B": 0.0297, "CCC": 0.0968}
 IG_MASTER = "BAMLC0A0CM"
 IG_BUCKETS = [(2.0, "BAMLC1A0C13Y"), (4.0, "BAMLC2A0C35Y"), (6.0, "BAMLC3A0C57Y"),
               (8.5, "BAMLC4A0C710Y"), (12.5, "BAMLC7A0C1015Y"), (20.0, "BAMLC8A0C15PY")]
@@ -51,6 +59,9 @@ CMT = [(1/12, "DGS1MO"), (0.25, "DGS3MO"), (0.5, "DGS6MO"), (1.0, "DGS1"),
        (2.0, "DGS2"), (3.0, "DGS3"), (5.0, "DGS5"), (7.0, "DGS7"),
        (10.0, "DGS10"), (20.0, "DGS20"), (30.0, "DGS30")]
 NODE_TENORS = [1/12, 0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
+# Green (safest) -> red (riskiest) ladder, reused by the plots.
+RATING_COLORS = {"AAA": "#1b5e20", "AA": "#2e7d32", "A": "#66bb6a", "BBB": "#f9a825",
+                 "BB": "#ef6c00", "B": "#e64a19", "CCC": "#c62828"}
 
 
 # --------------------------------------------------------------------------- #
@@ -145,7 +156,7 @@ def plot(sofr_curve, corp, basis_pts, asof):
     ts = np.linspace(0.1, 30, 600)
     pct = FuncFormatter(lambda v, _: f"{v:.1f}%")
     bp = FuncFormatter(lambda v, _: f"{v:.0f}")
-    colors = {"AA": "#2e7d32", "A": "#ef6c00", "BBB": "#c62828"}
+    colors = RATING_COLORS
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5.5))
 
     sz = [sofr_curve.zeroRate(t, ql.Continuous).rate() * 100 for t in ts]

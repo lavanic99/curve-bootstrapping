@@ -30,7 +30,8 @@ import rate_converter as rc            # noqa: E402
 import credit_curves as cc             # noqa: E402 (local)
 
 FOCUS_TENOR = "6M"
-CURVE_COLORS = {"SOFR": "#1f4e79", "AA": "#2e7d32", "A": "#ef6c00", "BBB": "#c62828"}
+CURVE_COLORS = {"SOFR": "#1f4e79", **cc.RATING_COLORS}
+ORDER = ["SOFR"] + cc.RATINGS            # column / plotting order, full ladder
 
 
 def build_curves():
@@ -61,7 +62,7 @@ def main() -> None:
     # Focused 6M, monthly-paid view (the headline quotable rates).
     view = (full[(full.tenor == FOCUS_TENOR) & (full.pay_freq == "Monthly")]
             .pivot(index="daycount", columns="curve", values="par_coupon_%")
-            .reindex(columns=["SOFR", "AA", "A", "BBB"]))
+            .reindex(columns=ORDER))
     print(f"All-in loan rate (%) — {FOCUS_TENOR}, par coupon, paid monthly:")
     print(view.to_string(float_format=lambda x: f"{x:.4f}"))
 
@@ -71,7 +72,7 @@ def main() -> None:
     # --- Panel A: quotable 6M loan rate by day count and rating ---
     dcs = list(view.index)
     xs = np.arange(len(dcs))
-    for name in ["SOFR", "AA", "A", "BBB"]:
+    for name in ORDER:
         ax1.scatter(xs, view[name].values, s=55, color=CURVE_COLORS[name],
                     label=name, zorder=3)
     ax1.set_xticks(xs); ax1.set_xticklabels(dcs, rotation=20, ha="right")
@@ -86,7 +87,7 @@ def main() -> None:
         l1 = rc.level1(c)
         a = l1[l1.tenor == FOCUS_TENOR][comps].values
         spreads[name] = (a.max() - a.min()) * 100          # bp
-    names = ["SOFR", "AA", "A", "BBB"]
+    names = ORDER
     ax2.bar(names, [spreads[n] for n in names],
             color=[CURVE_COLORS[n] for n in names], width=0.6)
     for i, n in enumerate(names):

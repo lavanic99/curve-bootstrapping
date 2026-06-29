@@ -28,7 +28,7 @@ methodology write-up:
                                         ▼
    FRED  ──────────►┌─────────────────────────────────────────────┐
    (ICE BofA OAS,   │  CORPORATE/  — credit curves                 │
-    Treasury CMT)   │  SOFR + spread(rating, tenor) → AA/A/BBB     │
+    Treasury CMT)   │  SOFR + spread(rating, tenor) → AAA…CCC      │
                     │  discount curves → quotable loan rates       │
                     └─────────────────────────────────────────────┘
 ```
@@ -53,7 +53,7 @@ CURVE_BOOTSTRAPPING/
 └── CORPORATE/                   credit curves on the SOFR base
     ├── README.md                methodology article (corporate curves)
     ├── .env                     FRED API key (gitignored)
-    ├── credit_curves.py         SOFR + rating spreads → AA/A/BBB discount curves
+    ├── credit_curves.py         SOFR + rating spreads → AAA…CCC discount curves
     ├── conversions.py           quotable loan rates in deal conventions
     └── *.csv / *.png            outputs
 ```
@@ -85,13 +85,15 @@ Layers a market credit spread on the SOFR base:
 corporate curve(rating) = SOFR + OAS_level(rating) × IG_shape(tenor) + Treasury–SOFR basis
 ```
 
-- **Rating level** — ICE BofA AA/A/BBB option-adjusted spreads (FRED).
+- **Rating level** — ICE BofA option-adjusted spreads for the full ladder,
+  AAA / AA / A / BBB (investment grade) and BB / B / CCC (high yield), from FRED.
 - **Maturity shape** — IG-corporate OAS buckets give the credit term-structure slope.
 - **Treasury–SOFR basis** — restates the spread from "over Treasuries" (how OAS
   is quoted) to "over SOFR" (the discounting base).
 
-Output is AA/A/BBB discount curves and quotable loan rates, in any deal
-convention (reusing the SOFR converter).
+Output is AAA→CCC discount curves and quotable loan rates, in any deal
+convention (reusing the SOFR converter). For an unrated crypto-fund borrower the
+relevant zone is high yield (BB/B/CCC), not the IG rungs.
 
 ---
 
@@ -130,7 +132,7 @@ python3 plot_conversions.py     # convention-basis plot
 # 2. corporate credit curves (needs FRED_API_KEY)
 cd ../CORPORATE
 cp .env.example .env             # then paste your free FRED key into .env
-python3 credit_curves.py        # AA/A/BBB curves + spread decomposition plot
+python3 credit_curves.py        # AAA-CCC curves + spread decomposition plot
 python3 conversions.py          # quotable loan rates in deal conventions + plot
 ```
 
@@ -150,9 +152,10 @@ across the whole project:
    indicative, and not a synchronised snapshot**. Good for understanding and
    pricing exploration; not an executable, real-time mark.
 2. **The corporate spreads are a reference scaffold, not a borrower's spread.**
-   They are public investment-grade *bond* spreads — a market-anchored floor for
-   "what IG credit costs," **not** the spread an unrated crypto-fund borrower
-   would pay (which is wider and comes from underwriting + collateral).
+   They are public rated-*bond* spreads across the full ladder (AAA→CCC, IG and
+   HY) — a market-anchored reference, **not** the spread a specific unrated
+   crypto-fund borrower would pay (which comes from underwriting + collateral).
+   For such a borrower the relevant zone is high yield (BB/B/CCC), not the IG rungs.
 3. **Several refinements are deliberately deferred** (futures convexity,
    turn-of-year jumps, separating credit vs Treasury-SOFR basis for loan
    pricing). Each is documented in the relevant README's "improvements" section.

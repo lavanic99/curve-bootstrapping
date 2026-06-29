@@ -1,10 +1,10 @@
 {
-  "run_utc": "2026-06-18T09:24:56+00:00",
-  "quote_date": "2026-06-17",
+  "run_utc": "2026-06-29T08:15:02+00:00",
+  "quote_date": "2026-06-26",
   "overnight_sofr_source": "Pensford quotes.xml (SOFR)",
-  "pensford_timestamp": "06/17/2026 06:00:01 PM",
-  "nyfed_overnight": 0.0363,
-  "nyfed_latest_date": "2026-06-16",
+  "pensford_timestamp": "06/26/2026 06:00:01 PM",
+  "nyfed_overnight": 0.0364,
+  "nyfed_latest_date": "2026-06-25",
   "futures_source": "Yahoo/yfinance (delayed, unofficial last-close)",
   "swaps_source": "Pensford quotes.xml (SOFRSWAP Yn, indicative)",
   "n_sr1": 9,
@@ -16,5 +16,5 @@
     "futures": 16,
     "ois": 6
   },
-  "max_reprice_error_bp": 0.17590069434731959
+  "max_reprice_error_bp": 0.18140077637696095
 }
