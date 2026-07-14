@@ -44,11 +44,11 @@ def build_curves():
     curves = {"SOFR": sofr_curve}
     for r in cc.RATINGS:
         curves[r] = cc.corporate_curve(handle, ref, d["oas"][r], shape_fn, basis_fn)
-    return curves, snap.quote_date.ISO()
+    return curves, snap.quote_date.ISO(), snap
 
 
 def main() -> None:
-    curves, asof = build_curves()
+    curves, asof, _ = build_curves()
 
     # Full quotable matrix: par coupon per curve x tenor x pay-freq x day-count.
     frames = []
