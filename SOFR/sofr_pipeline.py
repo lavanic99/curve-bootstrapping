@@ -29,7 +29,6 @@ import io
 import json
 import sys
 import warnings
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -42,11 +41,19 @@ warnings.filterwarnings("ignore")
 # --------------------------------------------------------------------------- #
 # Config
 # --------------------------------------------------------------------------- #
-PENSFORD_QUOTES = "https://19621209.fs1.hubspotusercontent-na1.net/hubfs/19621209/quotes.xml"
+# Pensford rebuilt their site (2026) as a JSON API; the old quotes.xml is gone.
+# /api/live-rates carries overnight SOFR + SOFR OIS swaps (currently to 10Y only,
+# so the curve is capped at 10Y — see MAX_SWAP_YEARS).
+PENSFORD_LIVE = "https://pensford.com/api/live-rates"
 NYFED_SOFR = "https://markets.newyorkfed.org/api/rates/secured/sofr/last/1.json"
 NYFED_SOFR_HIST = "https://markets.newyorkfed.org/api/rates/secured/sofr/last/{n}.json"
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                     "AppleWebKit/537.36 Chrome/124.0 Safari/537.36"}
+
+MAX_SWAP_YEARS = 10          # Pensford publishes SOFR swaps only to 10Y; cap the curve there
+# Last-known overnight + swaps (decimals), used only if the live feed is unreachable.
+PENSFORD_FALLBACK = {"overnight": 0.0359,
+                     "swaps": {2: 0.040582, 3: 0.040392, 5: 0.040371, 7: 0.040818, 10: 0.041742}}
 
 SETTLEMENT_DAYS = 2
 CURVE_DAYCOUNT = ql.Actual360()
@@ -105,29 +112,35 @@ def _parse_pensford_date(s: str) -> ql.Date:
 
 
 def fetch_pensford(snap_into: dict) -> None:
-    """Overnight SOFR + par OIS swap rates from Pensford."""
-    r = requests.get(PENSFORD_QUOTES, headers=UA, timeout=30)
-    r.raise_for_status()
-    root = ET.fromstring(r.text)
-    overnight = quote_date = None
-    swaps: dict[int, float] = {}
-    for rec in root.findall("record"):
-        sym = (rec.findtext("symbol") or "").strip()
-        quote = rec.findtext("quote")
-        qdate = rec.findtext("quoteDate")
-        if quote is None:
-            continue
-        if quote_date is None and qdate:
-            quote_date = _parse_pensford_date(qdate.strip())
-        if sym == "SOFR":
-            overnight = float(quote)
-        elif sym.startswith("SOFRSWAP Y"):
-            swaps[int(sym.replace("SOFRSWAP Y", "").strip())] = float(quote)
-    if overnight is None or quote_date is None or not swaps:
-        raise RuntimeError("Pensford feed missing O/N / quote-date / swaps")
-    snap_into.update(quote_date=quote_date, overnight=overnight,
-                     swaps=dict(sorted(swaps.items())),
-                     ts=root.attrib.get("timeStamp", ""))
+    """Overnight SOFR + par OIS swap rates from Pensford's live-rates JSON API.
+
+    Swaps are keyed `oisSwap<N>Y`; quotes are decimals (0.04 = 4%). Falls back to
+    last-known values if the feed is unreachable, so a feed change fails soft
+    rather than aborting the whole build.
+    """
+    try:
+        r = requests.get(PENSFORD_LIVE, headers={**UA, "Accept": "application/json"}, timeout=30)
+        r.raise_for_status()
+        d = r.json()
+        on = d["dailySofr"]
+        overnight = float(on["quote"])
+        quote_date = _parse_pensford_date(on["quoteDate"])          # "MM/DD/YYYY"
+        swaps = {int(k[len("oisSwap"):].rstrip("Yy")): float(v["quote"])
+                 for k, v in d.items() if k.startswith("oisSwap") and v.get("quote") is not None}
+        swaps = {y: r for y, r in swaps.items() if y <= MAX_SWAP_YEARS}
+        if not swaps:
+            raise ValueError("no oisSwap entries in feed")
+        snap_into.update(quote_date=quote_date, overnight=overnight,
+                         swaps=dict(sorted(swaps.items())), ts=str(d.get("timestamp", "")),
+                         swaps_source="Pensford live-rates API")
+    except Exception as e:                                          # noqa: BLE001
+        print(f"  [warn] Pensford live-rates unavailable ({e}); using last-known fallback",
+              file=sys.stderr)
+        t = datetime.now(timezone.utc).date()
+        qd = CALENDAR.adjust(ql.Date(t.day, t.month, t.year), ql.Preceding)
+        snap_into.update(quote_date=qd, overnight=PENSFORD_FALLBACK["overnight"],
+                         swaps=dict(sorted(PENSFORD_FALLBACK["swaps"].items())),
+                         ts="fallback", swaps_source="manual fallback (feed unreachable)")
 
 
 def _gen_sr1(y: int, m: int, n: int) -> list[tuple[int, int]]:
@@ -261,12 +274,13 @@ def fetch_snapshot() -> MarketSnapshot:
     snap.provenance = {
         "run_utc": run_utc,
         "quote_date": snap.quote_date.ISO(),
-        "overnight_sofr_source": "Pensford quotes.xml (SOFR)",
+        "overnight_sofr_source": box.get("swaps_source", "Pensford live-rates API"),
         "pensford_timestamp": snap.raw_timestamp,
         "nyfed_overnight": snap.nyfed_sofr,
         "nyfed_latest_date": snap.nyfed_date,
         "futures_source": "Yahoo/yfinance (delayed, unofficial last-close)",
-        "swaps_source": "Pensford quotes.xml (SOFRSWAP Yn, indicative)",
+        "swaps_source": box.get("swaps_source", "Pensford live-rates API"),
+        "max_swap_years": MAX_SWAP_YEARS,
         "n_sr1": len(snap.sr1), "n_sr3": len(snap.sr3),
         "n_swaps": len(snap.swaps), "n_fixings": len(snap.fixings),
     }
@@ -417,7 +431,7 @@ def short_end_curve(curve, months=(1, 2, 3, 4, 6, 9, 12)) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def zero_curve(curve, years=range(1, 31)) -> pd.DataFrame:
+def zero_curve(curve, years=range(1, MAX_SWAP_YEARS + 1)) -> pd.DataFrame:
     ref = curve.referenceDate()
     rows = []
     for y in years:

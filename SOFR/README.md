@@ -71,7 +71,7 @@ licensed. Our final source map:
 |---|---|---|---|
 | Overnight anchor & history | O/N SOFR + 60d of fixings | **NY Fed** public API | Official, authoritative |
 | Front (~0–2.5Y) | SR1 (1M) & SR3 (3M) SOFR futures | **Yahoo / `yfinance`** | Delayed, unofficial last-close |
-| Long end (3Y–30Y) | Par SOFR OIS swap rates | **Pensford** `quotes.xml` | Indicative advisory quotes |
+| Long end (3Y–10Y) | Par SOFR OIS swap rates | **Pensford** live-rates API | Indicative; swaps published only to 10Y |
 
 ### What we tried and rejected
 
@@ -177,7 +177,7 @@ validates against your own instrument definition.
 
 **Swap selection.** Only swaps maturing **beyond the last future + 1-month
 buffer** are used. With futures covering ~2.5Y, the 1Y and 2Y swaps are dropped
-automatically (the futures already pin that range), leaving 3Y–30Y.
+automatically (the futures already pin that range), leaving 3Y–10Y.
 
 ### 3.4 Granularity
 
@@ -242,7 +242,7 @@ Each run produces:
 |---|---|
 | `sofr_nodes.csv` | Bootstrapped node dates and discount factors |
 | `sofr_short_end.csv` | Sub-1Y points (1M–12M): zero, forward, DF |
-| `sofr_zero_curve.csv` | 1Y–30Y zero rates, forwards, discount factors |
+| `sofr_zero_curve.csv` | 1Y–10Y zero rates, forwards, discount factors |
 | `sofr_provenance.json` | Run metadata, source timestamps, reprice error |
 | `sofr_curve.png` | Zero & instantaneous-forward plot (full + short-end zoom) |
 | `rate_conversions_level1.csv` / `_level2.csv` | Equivalent rates / par coupons across conventions, all tenors |
@@ -274,17 +274,20 @@ analysis, but they matter before anyone *trades* off it.
    swaps are indicative advisory quotes (not executable mids); the three feeds
    are observed at different times. Good enough to understand the market; not a
    single crisp institutional snapshot.
-3. **Sparse long-end nodes → blocky forwards.** With only 3/5/7/10/15/30Y swaps
-   under log-linear interpolation, the instantaneous forward makes large
-   rectangular steps between nodes (e.g. ~10–15Y). Zero rates and discount
-   factors are unaffected; only forward-rate analytics in that region are.
+3. **Sparse long-end nodes → blocky forwards.** With only 3/5/7/10Y swaps
+   under log-linear interpolation, the instantaneous forward makes rectangular
+   steps between nodes. Zero rates and discount factors are unaffected; only
+   forward-rate analytics in that region are.
 4. **No turn-of-year / quarter-end jumps.** SOFR reliably spikes at period-ends
    (balance-sheet effects). The smooth curve averages these away, mispricing
    instruments whose accrual spans a turn.
-5. **Flat extrapolation beyond 30Y.** Anything past the last node is a flat
-   guess, not market-informed.
-6. **Single points of failure.** If Pensford changes its URL or Yahoo delists a
-   ticker, the build fails (loudly, but with no fallback source).
+5. **Curve capped at 10Y.** Pensford publishes SOFR swaps only to 10Y, so the
+   curve is not built beyond that point (rather than extrapolated). Fine for the
+   short-tenor term-deal use case; a longer source would be needed otherwise.
+6. **Feed-change / availability risk.** Data comes from single free providers
+   (Pensford moved its endpoint in 2026, which this build now targets). A manual
+   last-known fallback keeps the build running if the swap feed is unreachable,
+   rather than failing hard.
 7. **Convention-matching risk.** OIS conventions are set to the market standard,
    but if they differ from the exact conventions underlying the *quoted* rates,
    a small residual miscalibration remains that the reprice check cannot detect.

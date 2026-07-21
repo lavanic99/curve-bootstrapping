@@ -19,7 +19,7 @@ import credit_curves as cc             # noqa: E402
 import conversions as conv             # noqa: E402
 
 TENORS = [("1M", 1/12), ("3M", 0.25), ("6M", 0.5), ("1Y", 1), ("2Y", 2), ("3Y", 3),
-          ("5Y", 5), ("7Y", 7), ("10Y", 10), ("15Y", 15), ("20Y", 20), ("30Y", 30)]
+          ("5Y", 5), ("7Y", 7), ("10Y", 10)]   # capped at 10Y (Pensford swaps end at 10Y)
 SERIES = ["SOFR"] + cc.RATINGS
 COLORS = {"SOFR": "#1f4e79", **cc.RATING_COLORS}
 

@@ -142,8 +142,8 @@ Both legs are put on a **like-for-like bond-equivalent basis** (SOFR restated to
 Actual/Actual, semiannual via the convention converter) so the basis is the true
 economic gap, not a convention artefact. It is **negative at the front**
 (Treasuries trade *rich* — the safe-asset convenience premium; ≈ −10 to −20 bp
-near 1Y) and **positive at the long end** (Treasuries *cheap* vs swaps; ≈ +40 to
-+75 bp at 30Y). This is the well-documented Treasury-OIS term structure.
+near 1Y) and **positive further out** (Treasuries *cheap* vs swaps; ≈ +40 bp by
+10Y). This is the well-documented Treasury-OIS term structure.
 
 ### 3.4 Putting it together — worked example
 
@@ -168,7 +168,7 @@ tenor. No per-rating credit *curve* was ever observed.
 
 ### 3.5 Curve construction
 
-The per-rating spread is evaluated at node tenors (1M … 30Y) and layered on the
+The per-rating spread is evaluated at node tenors (1M … 10Y) and layered on the
 SOFR handle with QuantLib's `SpreadedLinearZeroInterpolatedTermStructure`,
 giving a genuine `YieldTermStructure` that interoperates with the SOFR
 convention converter. Loan rates are then produced as **par coupons** in the

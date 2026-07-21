@@ -55,10 +55,11 @@ MANUAL_OAS = {"AAA": 0.0038, "AA": 0.0052, "A": 0.0063, "BBB": 0.0095,
 IG_MASTER = "BAMLC0A0CM"
 IG_BUCKETS = [(2.0, "BAMLC1A0C13Y"), (4.0, "BAMLC2A0C35Y"), (6.0, "BAMLC3A0C57Y"),
               (8.5, "BAMLC4A0C710Y"), (12.5, "BAMLC7A0C1015Y"), (20.0, "BAMLC8A0C15PY")]
+# Capped at 10Y: Pensford now publishes SOFR swaps only to 10Y, so the SOFR base
+# is not market-pinned beyond that (see sofr_pipeline.MAX_SWAP_YEARS).
 CMT = [(1/12, "DGS1MO"), (0.25, "DGS3MO"), (0.5, "DGS6MO"), (1.0, "DGS1"),
-       (2.0, "DGS2"), (3.0, "DGS3"), (5.0, "DGS5"), (7.0, "DGS7"),
-       (10.0, "DGS10"), (20.0, "DGS20"), (30.0, "DGS30")]
-NODE_TENORS = [1/12, 0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
+       (2.0, "DGS2"), (3.0, "DGS3"), (5.0, "DGS5"), (7.0, "DGS7"), (10.0, "DGS10")]
+NODE_TENORS = [1/12, 0.25, 0.5, 1, 2, 3, 5, 7, 10]
 # Green (safest) -> red (riskiest) ladder, reused by the plots.
 RATING_COLORS = {"AAA": "#1b5e20", "AA": "#2e7d32", "A": "#66bb6a", "BBB": "#f9a825",
                  "BB": "#ef6c00", "B": "#e64a19", "CCC": "#c62828"}

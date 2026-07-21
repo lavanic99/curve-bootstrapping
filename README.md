@@ -70,7 +70,7 @@ A three-segment **bootstrap** that reprices every input instrument exactly:
   in-progress futures contract be valued.
 - **Front end** (CME SR1/SR3 futures via Yahoo) → pins every sub-1Y point with
   real market quotes.
-- **Long end** (Pensford SOFR OIS swaps) → 3Y–30Y.
+- **Long end** (Pensford SOFR OIS swaps) → 3Y–10Y (Pensford publishes swaps only to 10Y, so the curve is capped there).
 
 Interpolation is log-linear on discount factors (robust, non-oscillating). The
 curve reprices all inputs within ~0.18 bp. A companion **convention converter**
@@ -103,7 +103,7 @@ relevant zone is high yield (BB/B/CCC), not the IG rungs.
 |---|---|---|
 | Overnight SOFR + 60d fixings | NY Fed API | SOFR |
 | SR1/SR3 SOFR futures | Yahoo (`yfinance`) | SOFR |
-| SOFR OIS swap rates | Pensford `quotes.xml` | SOFR |
+| SOFR OIS swap rates (to 10Y) | Pensford live-rates API | SOFR |
 | Corporate OAS by rating + IG maturity buckets | FRED (ICE BofA) | CORPORATE |
 | Treasury CMT par yields | FRED | CORPORATE |
 

@@ -5,7 +5,7 @@
 | **Prepared for** | Management Board |
 | **Purpose** | Approval of a curve-construction model to support fixed-rate term-deal pricing |
 | **Model name** | Curve-Bootstrapping Framework (SOFR + Corporate Credit) |
-| **Version / date** | v1.0 — results as at **2 July 2026** |
+| **Version / date** | v1.0 — results as at **20 July 2026** |
 | **Model owner** | *[Risk / Treasury — to be assigned]* |
 | **Classification** | Decision-support / reference model (not a sole basis for execution) |
 | **Repository** | `github.com/lavanic99/curve-bootstrapping` |
@@ -36,7 +36,7 @@ and converts any point into a **deal-matched fixed rate** in the borrower's day-
 - **Sky / USDS / SSR.** USDS holders earn the SSR, a variable rate governance-anchored to SOFR. Offering **fixed-rate, fixed-maturity** products (loans) requires a term structure of rates rather than a single overnight rate.
 - **Direction of the exposure.** In the reference use case the protocol **lends fixed and funds floating** (SSR ≈ SOFR). It is therefore **short interest-rate risk** (rising rates compress the margin). Correct term-structure pricing is the first control on that exposure.
 - **What the model produces.**
-  1. SOFR discount factors / zero rates for any date to 30Y.
+  1. SOFR discount factors / zero rates for any date to 10Y.
   2. Corporate credit spreads over SOFR by rating and tenor.
   3. All-in fixed loan rate in any market day-count/accrual convention.
 
@@ -64,7 +64,7 @@ A **three-segment bootstrap** (shortest to longest), with the defining property 
 |---|---|---|
 | Overnight + realised history | Official daily SOFR fixings (60 days) | Anchor; value the in-progress front contract |
 | Front (~0–2.5Y) | CME SR1 (1M) & SR3 (3M) SOFR futures | Pin every sub-1Y point with market quotes |
-| Long end (3Y–30Y) | SOFR OIS par swap rates | Term structure to 30Y |
+| Long end (3Y–10Y) | SOFR OIS par swap rates | Term structure to 10Y (public swap data ends at 10Y) |
 
 - **Interpolation:** log-linear on discount factors (equivalently, piecewise-flat instantaneous forwards) — chosen for robustness and no oscillation across sparse long-end nodes.
 - **Segment handoff:** quarterly futures are used only beyond the last monthly future; swaps only beyond the last future — no instrument is double-counted.
@@ -99,7 +99,7 @@ All inputs are free and public. Each run writes a provenance record (timestamps,
 |---|---|---|
 | Overnight SOFR + 60-day history | NY Fed API (official) | Daily |
 | SR1 / SR3 SOFR futures | CME via Yahoo Finance | Daily (delayed) |
-| SOFR OIS swap rates | Pensford (indicative) | Daily EOD |
+| SOFR OIS swap rates | Pensford live-rates API (indicative) | Daily EOD |
 | Corporate OAS by rating + IG maturity buckets | FRED (ICE BofA) | Daily |
 | Treasury CMT par yields | FRED (US Treasury) | Daily |
 
@@ -121,31 +121,31 @@ The residual futures reprice error (~0.1 bp) is a known consequence of averaging
 
 ---
 
-## 7. Results as at 2 July 2026
+## 7. Results as at 20 July 2026
 
-**7.1 SOFR risk-free curve** (continuous-compounded zero rates). Overnight SOFR = **3.66%**.
+**7.1 SOFR risk-free curve** (continuous-compounded zero rates). Overnight SOFR = **3.59%**.
 
-| Tenor | 1M | 3M | 6M | 1Y | 2Y | 3Y | 5Y | 7Y | 10Y | 15Y | 30Y |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| Zero | 3.65 | 3.70 | 3.79 | 3.89 | 3.90 | 3.88 | 3.86 | 3.90 | 4.00 | 4.17 | 4.18 |
+| Tenor | 1M | 3M | 6M | 1Y | 2Y | 3Y | 5Y | 7Y | 10Y |
+|---|---|---|---|---|---|---|---|---|---|
+| Zero | 3.67 | 3.73 | 3.83 | 3.95 | 3.98 | 3.96 | 3.96 | 4.00 | 4.11 |
 
-*Shape:* mildly humped — the belly (~5Y, 3.86%) sits below the 1–2Y area, reflecting near-term cuts priced in, before normalising higher to ~4.18% at 30Y.
+*Shape:* mildly humped — the belly (~3–5Y, 3.96%) sits close to the 1–2Y area, reflecting expectations of modest medium-term easing, before rising to ~4.11% at 10Y. The curve is pinned by market swaps only to 10Y (see §9).
 
 **7.2 Corporate credit spreads over SOFR** (basis points):
 
 | Tenor | AAA | AA | A | BBB | BB | B | CCC |
 |---|---|---|---|---|---|---|---|
-| 6M | 35 | 45 | 51 | 71 | 113 | 196 | 611 |
-| 1Y | 25 | 34 | 41 | 60 | 103 | 185 | 600 |
-| 2Y | 40 | 49 | 56 | 75 | 118 | 201 | 616 |
-| 5Y | 63 | 77 | 87 | 116 | 181 | 306 | 933 |
-| 10Y | 83 | 101 | 115 | 152 | 236 | 398 | 1210 |
+| 6M | 29 | 38 | 45 | 64 | 105 | 184 | 608 |
+| 1Y | 22 | 31 | 37 | 57 | 98 | 177 | 601 |
+| 2Y | 35 | 45 | 51 | 70 | 111 | 190 | 615 |
+| 5Y | 61 | 75 | 84 | 113 | 174 | 293 | 930 |
+| 10Y | 83 | 101 | 113 | 150 | 229 | 383 | 1202 |
 
 **7.3 All-in fixed loan rate — 6M, par coupon, interest paid monthly, Act/360** (%):
 
 | SOFR | AAA | AA | A | BBB | BB | B | CCC |
 |---|---|---|---|---|---|---|---|
-| 3.80 | 4.16 | 4.25 | 4.32 | 4.51 | 4.94 | 5.77 | 9.95 |
+| 3.83 | 4.12 | 4.22 | 4.28 | 4.47 | 4.88 | 5.67 | 9.92 |
 
 *Interpretation:* investment-grade references land at 4.2–4.5%; the high-yield band (the relevant zone for an unrated crypto-fund borrower) at ~4.9% (BB) to ~5.8% (B), with CCC (~9.9%) reflecting a distressed-heavy bucket.
 
@@ -171,7 +171,8 @@ The residual futures reprice error (~0.1 bp) is a known consequence of averaging
 | 4 | **Treasury-SOFR basis can make the merged short-tenor spread dip** (a benchmark effect, not credit). | Medium | Basis reported as a separate component; do not let it reduce the charged credit spread. |
 | 5 | **Data is free, delayed, indicative, multi-source, not synchronised.** | Medium | EOD reference use only; provenance logged; sanity gates. |
 | 6 | **Deferred refinements:** futures convexity, year-end jumps, per-rating HY curves, optionality. | Low–Medium | Documented roadmap; immaterial for short IG/reference use. |
-| 7 | **Single-provider feeds** (futures, swaps) — availability risk. | Low | Manual/last-known fallback; loud failure on bad data. |
+| 7 | **Single-provider feeds** (futures, swaps) — availability and change risk (the swap provider moved its endpoint in 2026). | Low–Medium | Manual/last-known fallback so a feed change fails soft; loud failure on bad data. |
+| 8 | **Curve capped at 10Y** — the public swap source publishes no tenors beyond 10Y, so the model produces no rates past that point. | Low for term-deal use (loans are short) | Documented; a longer source could be added if needed. |
 
 **Overall model-risk rating: Moderate**, appropriate for a **decision-support / reference** classification, **not** for sole-basis execution.
 
