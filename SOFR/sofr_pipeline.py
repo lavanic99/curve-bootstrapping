@@ -411,6 +411,25 @@ def validate(curve, labeled: list[Labeled], tol_bp: float = 0.5) -> pd.DataFrame
     return df
 
 
+def check_arbitrage_free(curve) -> None:
+    """Assert the curve is arbitrage-free: log-linear-on-DF is arbitrage-free iff
+    discount factors are strictly decreasing (<=> non-negative instantaneous
+    forwards). We check both the node DFs and a dense grid of forwards."""
+    nodes = list(curve.nodes())
+    for (d0, df0), (d1, df1) in zip(nodes, nodes[1:]):
+        if df1 >= df0:
+            raise RuntimeError(f"Arbitrage: non-decreasing DF {d0.ISO()}->{d1.ISO()} "
+                               f"({df0:.6f}->{df1:.6f}); implies negative forward")
+    ref, tmax = curve.referenceDate(), curve.maxTime()
+    t = 0.02
+    while t < tmax:
+        f = curve.forwardRate(t, min(t + 0.05, tmax), ql.Continuous, ql.Annual, True).rate()
+        if f < -1e-8:
+            raise RuntimeError(f"Arbitrage: negative instantaneous forward {f:.4%} near t={t:.2f}y")
+        t += 0.05
+    print("Arbitrage-free check: PASS (discount factors strictly decreasing, forwards >= 0)")
+
+
 # --------------------------------------------------------------------------- #
 # Output
 # --------------------------------------------------------------------------- #
@@ -468,6 +487,7 @@ def main() -> None:
     print(nodes.to_string(index=False))
 
     check = validate(curve, labeled)
+    check_arbitrage_free(curve)
     print(check.to_string(index=False, formatters={
         "market": "{:.4f}".format, "implied": "{:.4f}".format, "error_bp": "{:+.4f}".format}))
 

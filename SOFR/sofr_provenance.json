@@ -1,10 +1,10 @@
 {
-  "run_utc": "2026-07-21T11:36:15+00:00",
-  "quote_date": "2026-07-20",
+  "run_utc": "2026-07-24T10:48:35+00:00",
+  "quote_date": "2026-07-23",
   "overnight_sofr_source": "Pensford live-rates API",
-  "pensford_timestamp": "2026-07-21T11:32:45.273Z",
-  "nyfed_overnight": 0.0359,
-  "nyfed_latest_date": "2026-07-17",
+  "pensford_timestamp": "2026-07-24T10:48:02.401Z",
+  "nyfed_overnight": 0.0362,
+  "nyfed_latest_date": "2026-07-22",
   "futures_source": "Yahoo/yfinance (delayed, unofficial last-close)",
   "swaps_source": "Pensford live-rates API",
   "max_swap_years": 10,
@@ -17,5 +17,5 @@
     "futures": 16,
     "ois": 4
   },
-  "max_reprice_error_bp": 0.14300926633552535
+  "max_reprice_error_bp": 0.15402015673799951
 }

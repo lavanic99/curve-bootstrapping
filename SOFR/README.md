@@ -229,8 +229,15 @@ tolerance**; in practice the maximum error is ~0.18bp.
 > to ~0.1–0.2bp because they settle on an *average / compounded* fixing over
 > their period, while log-linear discounting assumes a *flat* forward across it —
 > a single node per contract cannot reproduce the intra-period averaging
-> perfectly. This residual is well within tolerance and shrinks with a finer
-> interpolator.
+> perfectly. The residual sits *only* on the futures (swaps are exact), which
+> confirms it as an interpolation effect rather than a convention error.
+
+### 4.3 Arbitrage-free check (after building)
+
+We assert the curve is arbitrage-free: log-linear-on-discount-factors is
+arbitrage-free **iff** the discount factors are strictly decreasing (⟺
+non-negative instantaneous forwards). The build checks both the node discount
+factors and a dense grid of instantaneous forwards, and fails loudly otherwise.
 
 ---
 

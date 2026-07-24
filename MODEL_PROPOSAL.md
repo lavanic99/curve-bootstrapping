@@ -111,7 +111,8 @@ All inputs are free and public. Each run writes a provenance record (timestamps,
 
 | Control | Result (2 July 2026) |
 |---|---|
-| SOFR reprice check — curve reproduces every calibrating instrument | **PASS — max error 0.11 bp** (tolerance 0.5 bp) |
+| SOFR reprice check — curve reproduces every calibrating instrument | **PASS — max error 0.15 bp** (tolerance 0.5 bp) |
+| Arbitrage-free — discount factors strictly decreasing (forwards ≥ 0) | **PASS** |
 | Overnight anchor vs official NY Fed fixing | **0.00 bp** difference |
 | Credit ladder monotonicity (AAA < AA < … < CCC) | **PASS** at every tenor |
 | Basis sign/shape vs known Treasury-OIS structure | **PASS** (negative front, positive long) |

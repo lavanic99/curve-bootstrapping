@@ -107,20 +107,46 @@ def _tenor_date(ref, t):
                                  ql.ModifiedFollowing)
 
 
-def _sofr_bey(curve, ref, d):
-    """SOFR rate restated to bond-equivalent (Act/Act, semiannual) to compare
-    like-for-like with CMT par yields."""
-    compound = 1.0 / curve.discount(d)
+def treasury_zero_curve(cmt):
+    """Bootstrap Treasury *zero* rates (semiannual, decimal) from CMT *par*
+    yields, removing the par-vs-zero inconsistency in the basis. Par yields are
+    coupon-equivalent (semiannual); zeros are bootstrapped on a 6-month grid,
+    with sub-6M points treated as zero-coupon (bill) yields."""
+    ts = sorted(cmt)
+    ys = [cmt[t] for t in ts]
+    grid = [round(x, 4) for x in np.arange(0.5, ts[-1] + 1e-9, 0.5)]
+    ypar = np.interp(grid, ts, ys)
+    df, cum = [], 0.0
+    for t, y in zip(grid, ypar):
+        c = y / 2.0
+        d = (1.0 - c * cum) / (1.0 + c)              # par-bond bootstrap on the 6M grid
+        df.append(d); cum += d
+    logdf = np.log(df)
+
+    def tz(t):                                        # semiannual zero at t (decimal)
+        if t <= grid[0]:
+            return float(np.interp(t, ts, ys))        # bill region: ~zero-coupon
+        d = float(np.exp(np.interp(t, grid, logdf)))  # log-linear DF interpolation
+        return 2.0 * (d ** (-1.0 / (2.0 * t)) - 1.0)
+    return tz
+
+
+def _sofr_zero_semi(curve, ref, t):
+    """SOFR zero rate at tenor t, restated to semiannual bond-equivalent."""
+    compound = 1.0 / curve.discount(_tenor_date(ref, t))
     return ql.InterestRate.impliedRate(compound, ql.ActualActual(ql.ActualActual.ISDA),
-                                       ql.Compounded, ql.Semiannual, ref, d).rate()
+                                       ql.Compounded, ql.Semiannual, ref, _tenor_date(ref, t)).rate()
 
 
 def build_basis(curve, ref, cmt):
-    """Treasury(CMT) - SOFR(bond-equiv) at each CMT tenor -> interpolator(t)."""
+    """Treasury *zero* - SOFR *zero* (both semiannual, like-for-like) at each CMT
+    tenor -> interpolator(t). Bootstrapping Treasury zeros from the CMT par
+    yields removes the par-vs-zero mismatch."""
     if cmt is None:
         return (lambda t: 0.0), {}
+    tz = treasury_zero_curve(cmt)
     ts = sorted(cmt)
-    vals = [cmt[t] - _sofr_bey(curve, ref, _tenor_date(ref, t)) for t in ts]
+    vals = [tz(t) - _sofr_zero_semi(curve, ref, t) for t in ts]
     return (lambda t: float(np.interp(t, ts, vals))), dict(zip(ts, vals))
 
 
@@ -134,13 +160,18 @@ def build_shape(shape):
 
 
 def corporate_curve(sofr_handle, ref, level, shape_fn, basis_fn):
+    """SOFR base + credit spread. The spread (OAS x shape + basis) is quoted in
+    semiannual bond-equivalent terms — as are OAS and the basis — so it is added
+    to the base in the *same* compounding (semiannual, Act/Act), not continuous.
+    This removes the compounding mismatch that mattered at wide (HY) spreads."""
     dates, quotes = [], []
     for t in NODE_TENORS:
-        spread = level * shape_fn(t) + basis_fn(t)        # over SOFR
+        spread = level * shape_fn(t) + basis_fn(t)        # semiannual spread over SOFR
         dates.append(_tenor_date(ref, t))
         quotes.append(ql.QuoteHandle(ql.SimpleQuote(spread)))
     curve = ql.SpreadedLinearZeroInterpolatedTermStructure(
-        sofr_handle, quotes, dates, ql.Continuous, ql.NoFrequency, ql.Actual365Fixed())
+        sofr_handle, quotes, dates, ql.Compounded, ql.Semiannual,
+        ql.ActualActual(ql.ActualActual.ISDA))
     curve.enableExtrapolation()
     return curve
 
