@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const {
   Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
-  Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, ImageRun, LevelFormat,
+  Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, LevelFormat,
 } = require("docx");
 
 const DIR = __dirname;
@@ -13,31 +13,34 @@ const CONTENT_W = 9360;
 const D = JSON.parse(fs.readFileSync(path.join(DIR, "doc_data.json"), "utf8"));
 const ASOF = D.asof, TEN = D.labels, RAT = ["AAA","AA","A","BBB","BB","B","CCC"];
 
-const HAIR = { style: BorderStyle.SINGLE, size: 2, color: "D9D9D9" };
-const CELLB = { top: HAIR, bottom: HAIR, left: HAIR, right: HAIR };
-function cell(text, w, { header = false, first = false, ri = 0 } = {}) {
-  return new TableCell({ width: { size: w, type: WidthType.DXA }, borders: CELLB,
-    margins: { top: 30, bottom: 30, left: 70, right: 70 },
-    shading: header ? { type: ShadingType.CLEAR, fill: "1F3864", color: "auto" }
-      : (ri % 2 ? { type: ShadingType.CLEAR, fill: "F3F5F8", color: "auto" } : undefined),
+const RULE_THICK = { style: BorderStyle.SINGLE, size: 8, color: "000000" };
+const RULE_THIN = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
+const NOB = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+function cell(text, w, { header = false, first = false, last = false } = {}) {
+  const borders = header ? { top: RULE_THICK, bottom: RULE_THIN, left: NOB, right: NOB }
+    : last ? { top: NOB, bottom: RULE_THICK, left: NOB, right: NOB }
+    : { top: NOB, bottom: NOB, left: NOB, right: NOB };
+  return new TableCell({ width: { size: w, type: WidthType.DXA }, borders,
+    margins: { top: 34, bottom: 34, left: 80, right: 80 },
     children: [new Paragraph({ alignment: first ? AlignmentType.LEFT : AlignmentType.RIGHT, spacing: { after: 0 },
-      children: [new TextRun({ text: String(text), bold: header || first, color: header ? "FFFFFF" : "000000", size: header ? 17 : 16 })] })] });
+      children: [new TextRun({ text: String(text), bold: header, size: 16, color: "000000" })] })] });
 }
 function table(headers, rows, widths) {
   const head = new TableRow({ tableHeader: true, children: headers.map((h, i) => cell(h, widths[i], { header: true, first: i === 0 })) });
-  const body = rows.map((r, ri) => new TableRow({ children: r.map((c, i) => cell(c, widths[i], { first: i === 0, ri })) }));
+  const body = rows.map((r, ri) => new TableRow({ children: r.map((c, i) => cell(c, widths[i], { first: i === 0, last: ri === rows.length - 1 })) }));
   return new Table({ columnWidths: widths, width: { size: widths.reduce((a, b) => a + b, 0), type: WidthType.DXA }, rows: [head, ...body] });
 }
 function img(file, w) {
   const data = fs.readFileSync(path.join(DIR, file));
-  const ratio = file.includes("allin") ? 600 / 1050 : 510 / 1050;
+  const ratio = file.includes("allin") ? 570 / 1050 : 470 / 1050;
   return new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 120, after: 60 },
     children: [new ImageRun({ type: "png", data, transformation: { width: w, height: Math.round(w * ratio) } })] });
 }
 const H1 = (t) => new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 280, after: 100 }, children: [new TextRun({ text: t, bold: true })] });
 const H2 = (t) => new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 60 }, children: [new TextRun({ text: t, bold: true, size: 22 })] });
 const P = (t) => new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 120, line: 276 }, children: [new TextRun({ text: t, size: 21 })] });
-const CAP = (t) => new Paragraph({ spacing: { after: 160 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: t, italics: true, size: 17, color: "666666" })] });
+const EQ = (t) => new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 40, after: 120 }, children: [new TextRun({ text: t, italics: true, size: 21 })] });
+const CAP = (t) => new Paragraph({ spacing: { after: 160 }, alignment: AlignmentType.CENTER, children: [new TextRun({ text: t, size: 17, color: "333333" })] });
 const BUL = (t) => new Paragraph({ numbering: { reference: "b", level: 0 }, alignment: AlignmentType.JUSTIFIED, spacing: { after: 60, line: 270 }, children: [new TextRun({ text: t, size: 21 })] });
 const CTR = (runs, opts = {}) => new Paragraph({ alignment: AlignmentType.CENTER, spacing: opts.spacing || { after: 40 }, children: runs });
 const sup = (t) => new TextRun({ text: t, superScript: true, size: 20 });
@@ -60,61 +63,77 @@ const children = [
        new TextRun({ text: "      Jan Delegos, CFA", size: 21 }), sup("2")], { spacing: { after: 40 } }),
   CTR([sup("1"), new TextRun({ text: " Analyst, BA Labs        ", italics: true, size: 18, color: "555555" }),
        sup("2"), new TextRun({ text: " Head of Risk, Sky Frontier Foundation", italics: true, size: 18, color: "555555" })], { spacing: { after: 40 } }),
-  new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "1F3864" } },
-    children: [new TextRun({ text: `Working note — illustrative calibration as at ${ASOF}`, size: 18, italics: true, color: "555555" })] }),
+  new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000" } },
+    children: [new TextRun({ text: `Working note. Illustrative calibration as at ${ASOF}`, size: 18, italics: true, color: "555555" })] }),
 
   new Paragraph({ spacing: { after: 60 }, indent: { left: 540, right: 540 }, children: [new TextRun({ text: "Abstract", bold: true, size: 20 })] }),
   new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { after: 100, line: 264 }, indent: { left: 540, right: 540 },
     children: [new TextRun({ size: 19, text:
-      "We document a reproducible procedure for bootstrapping a US dollar risk-free discount curve from free, end-of-day market data, and a transparent overlay that adds credit spreads by rating. The risk-free curve is built from Secured Overnight Financing Rate (SOFR) instruments — overnight fixings, SOFR futures, and overnight-indexed swaps — so that it reprices its calibrating instruments exactly. The credit overlay is constructed from index option-adjusted spreads, an investment-grade maturity shape, and the Treasury–SOFR basis. We set out the construction, report an illustrative calibration, and give particular attention to the model's known limitations — the assumptions, data constraints, and validation gaps a user must weigh before relying on the output." })] }),
+      "This note builds a US dollar risk-free discount curve from free, end-of-day data, then adds a credit-spread layer by rating. The risk-free curve is bootstrapped from SOFR instruments (overnight fixings, futures, and overnight-indexed swaps) and reprices each of them exactly. We give the mathematics of the construction, then spend most of the note on the parts that are easy to get wrong when the only data you have is free and public: matching quoting conventions, keeping the Treasury basis internally consistent, and confirming the curve admits no arbitrage. An illustrative calibration and a full account of the limitations follow." })] }),
   new Paragraph({ spacing: { after: 160 }, indent: { left: 540, right: 540 },
-    children: [new TextRun({ text: "Keywords: ", bold: true, size: 18 }),
-      new TextRun({ text: "SOFR; yield-curve bootstrapping; discount factors; overnight-indexed swaps; credit spreads; option-adjusted spread; term structure.", size: 18, italics: true })] }),
+    children: [new TextRun({ text: "Keywords: ", bold: true, size: 18 }), new TextRun({ text: "SOFR; yield-curve bootstrapping; discount factors; overnight-indexed swaps; credit spreads; option-adjusted spread; term structure.", size: 18, italics: true })] }),
 
   H1("1. Introduction and purpose"),
-  P("The model produces a term structure of US dollar interest rates in two layers. The first is a risk-free curve derived from the Secured Overnight Financing Rate (SOFR) [6]; the second is a set of credit spreads by rating that sit on top of it. Together they yield a discount curve and a forward-rate view out to ten years. The emphasis of this note is the risk-free bootstrap and its construction from freely available data; the credit overlay is included as a worked illustration of how a spread layer is added, not as a study of any particular borrower."),
-  P("The construction is deliberately kept auditable: the risk-free part is pinned to observable market instruments and reprices them exactly, and every modelling assumption is stated rather than buried in a single output number."),
+  P("The model has two layers. A risk-free curve comes from SOFR [6], and a set of credit spreads by rating sits on top of it. Together they give discount factors and forward rates out to ten years. Most of what follows concerns the risk-free curve and how to build it from data anyone can pull for free. The credit layer is there to show how a spread is added, not to study any particular borrower."),
+  P("We kept the construction auditable. The risk-free part is pinned to traded instruments and reprices them exactly, and each assumption is written down rather than folded into a single output number."),
 
   H1("2. The SOFR risk-free curve"),
-  P("The curve is built by bootstrapping — an iterative procedure that, rather than fitting a smooth functional form, solves for the discount factors that reprice a chosen set of market instruments exactly, one maturity at a time from the short end outward [1, 2]. Each instrument adds a single node and is priced using only the nodes already fixed, so the calibration reduces to a sequence of one-dimensional root solves. The construction follows standard single- and multi-curve practice [3] and is implemented with QuantLib [1, 4]."),
-  P("Three families of instruments are used, each liquid over its own part of the curve. The published overnight SOFR fixing [6], together with the realised fixings of the current month, anchors the front. One- and three-month SOFR futures cover the range to roughly two and a half years, fixing the expected compounded overnight rate over each contract period. SOFR overnight-indexed swaps carry the term structure from three to ten years through their par rates. The public swap source publishes tenors only to ten years, so the curve is capped there; longer maturities are not produced rather than extrapolated."),
-  P("Between nodes the curve interpolates log-linearly on discount factors, which holds the instantaneous forward rate constant across each interval. This keeps forward rates well behaved where instruments are sparse, at the cost of a forward curve that is piecewise flat rather than smooth. The finished curve reprices every input to within about two tenths of a basis point."),
-  img("chart_sofr.png", 560),
-  CAP("Figure 1. SOFR risk-free zero curve, continuous compounding."),
-  P(`The calibration as at ${ASOF} is mildly humped: the curve rises through the first year to about 3.95 per cent, is broadly flat across the two-to-five-year segment near 3.96 per cent, and rises to about 4.11 per cent at ten years.`),
-  table(["Tenor", "SOFR zero rate"], sofrRows, wA),
-  CAP("Table 1. SOFR continuous-compounded zero rates."),
+  P("Bootstrapping solves for the discount factors that reprice a set of market instruments exactly, one maturity at a time from the short end out [1, 2]. It does not fit a smooth curve through the quotes; it inverts them. The method is standard [3] and the implementation uses QuantLib [1, 4]."),
+  P("Three kinds of instrument each cover their own stretch of the curve. The overnight SOFR fixing [6], together with the realised fixings of the current month, anchors the front. One- and three-month SOFR futures reach to about two and a half years. Overnight-indexed swaps carry the curve from three to ten years through their par rates. The free swap feed stops at ten years, so the curve stops there. We do not extrapolate past the last real quote."),
 
-  H1("3. The credit overlay (illustration)"),
-  P("To show how a spread layer is added, credit risk is expressed as a spread over the SOFR curve, differentiated by rating. The market quotes, for each rating, a single option-adjusted spread (OAS) blended across maturities [7]; the model turns that into a term structure from three inputs: the level (the rating's OAS, a spread over Treasuries [7]); a maturity shape borrowed from the investment-grade index's maturity buckets; and the Treasury–SOFR basis, which restates the spread from a pickup over Treasuries to a pickup over SOFR."),
-  P("Two conventions are handled explicitly so the arithmetic is consistent. The basis is computed zero-against-zero — a Treasury zero curve is bootstrapped from the constant-maturity par yields, rather than comparing a par yield to a zero rate — and the resulting spread, which is quoted in semiannual bond-equivalent terms like the OAS, is added to the SOFR curve in the same semiannual compounding rather than as a continuous spread. Both matter only at wide (high-yield) spreads but are corrected regardless."),
+  H1("3. Mathematical formulation"),
+  P("The curve is a set of discount factors DF(0,T), the value today of one unit paid at T. From them we read the continuously-compounded zero rate z(T) and the instantaneous forward rate f(t):"),
+  EQ("DF(0,T) = exp( −z(T)·T ),        f(t) = −d ln DF(0,t) / dt ."),
+  P("Bootstrapping picks the discount factors so that each calibrating instrument prices to its quote. An instrument maturing at Tₙ depends only on the factors up to Tₙ, so they are solved in order from the short end. Each instrument adds one unknown, DF(0,Tₙ), found by a single root solve with the earlier factors held fixed. That ordering is why the fit is exact rather than a least-squares approximation."),
+  P("Each instrument enters through its pricing identity. A SOFR overnight-indexed swap is worth zero at par, which pins its fixed rate:"),
+  EQ("R = ( DF(0,T₀) − DF(0,Tₙ) ) / Σᵢ τᵢ DF(0,Tᵢ) ."),
+  P("The denominator is the annuity, τᵢ the accrual of period i, and the numerator the value of the daily-compounded floating leg. Futures pin the forward over their window: one-month contracts settle on the arithmetic average of the daily fixings, three-month contracts on their daily compounding."),
+  P("Between nodes we interpolate log-linearly on discount factors, so ln DF(0,t) is linear in t and the forward f(t) is constant on each interval. That gives a clean no-arbitrage test. The curve admits no arbitrage exactly when the discount factors strictly decrease,"),
+  EQ("DF(0,Tᵢ₊₁) < DF(0,Tᵢ)   ⇔   f(t) ≥ 0 ,"),
+  P("which the build checks after every calibration."),
+
+  H1("4. The credit overlay (illustration)"),
+  P("Credit risk goes on as a spread over SOFR, split by rating. The market gives one option-adjusted spread (OAS) per rating, blended across maturities [7]. Turning that single number into a term structure takes three pieces. The level is the rating's OAS, quoted over Treasuries. The slope comes from the investment-grade index's maturity buckets, which we reuse for every rating. The third piece is the Treasury-to-SOFR basis, which moves the spread from a pickup over Treasuries to a pickup over SOFR. Getting those pieces to combine consistently is the work of Section 5."),
   table(["Rating", "OAS over Treasuries (bp)"], oasRows, wB),
   CAP("Table 2. Blended index OAS by rating."),
+
+  H1("5. Working with free data"),
+  P("Free data breaks in ways a paid terminal does not. Here is what we ran into and what each fix was. None of it changes the formulation in Section 3."),
+  P("The swap feed is not a contract. Partway through this work the provider rebuilt its site and moved the data to a new endpoint, and the old one began returning 404s. We re-pointed the loader and added a last-known fallback, so the next time an endpoint moves the curve degrades instead of failing outright. That same feed only publishes swaps to ten years, which is why the curve ends at ten years rather than extrapolating a number and presenting it as market data."),
+  P("Compounding is easy to get wrong here. OAS and the Treasury-SOFR basis are quoted semiannually, but the discount curve holds rates continuously. A spread s quoted semiannually equals 2·ln(1 + s/2) continuously, and the gap grows with the spread: under a basis point at investment grade, about 24 bp at a ten-per-cent (CCC) level. Added as a continuous spread it would overstate the wide ones, so we add it in the semiannual terms it is quoted in."),
+  P("The basis needs the same care. The Treasury inputs are constant-maturity par yields, and once the curve slopes a par yield and a zero rate are not the same number. We bootstrap a Treasury zero curve from the par yields first (for a par bond priced at 100, 1 = (y/2)·Σⱼ DF(0,Tⱼ) + DF(0,Tₙ)), then take the basis zero against zero."),
+  P("The futures do not reprice to the last decimal, and two effects sit behind that. They are easy to conflate, so keep them apart. One is convexity: a margined future prices a touch above the equivalent forward. We handle that separately, by setting the convexity adjustment to zero, and return to it below. The other is a small numerical residual. A piecewise-flat forward cannot reproduce a rate that settles on an average or a daily compounding, so up to about 0.15 bp is left on the futures. That is not an arbitrage violation: the discount factors strictly decrease, so the curve admits no arbitrage by construction, and the swaps reprice exactly. The residual shows up on a few monthly contracts and does not grow with maturity, which points to interpolation rather than a funding effect. We keep log-linear because a log-cubic scheme will not converge on this set."),
+  P("We left the futures convexity adjustment at zero. Doing it properly needs a volatility input we cannot get for free, and the bias is small (under a basis point in the first year, a few by two and a half years) [5], so we flag it rather than guess. One thing we do not leave to chance is no-arbitrage: log-linear interpolation stays arbitrage-free only while the discount factors keep falling, so the build tests that on every run and stops if a forward turns negative."),
+
+  H1("6. Results and validation"),
+  P(`The calibration as at ${ASOF} is below. The SOFR curve is mildly humped: up through the first year, roughly flat from two to five years, then rising toward ten. Investment-grade all-in rates land within about a point of the risk-free curve, and the high-yield rungs spread out quickly.`),
+  img("chart_sofr.png", 540),
+  CAP("Figure 1. SOFR risk-free zero curve, continuous compounding."),
+  table(["Tenor", "SOFR zero rate"], sofrRows, wA),
+  CAP("Table 1. SOFR continuous-compounded zero rates."),
   table(["Tenor", ...RAT], spreadRows, wC),
   CAP("Table 3. Credit spread over SOFR by rating and tenor (basis points)."),
-  img("chart_allin.png", 580),
+  img("chart_allin.png", 560),
   CAP("Figure 2. All-in fixed rate by rating; SOFR shown for reference."),
   table(["Tenor", "SOFR", ...RAT], allinRows, wD),
   CAP("Table 4. All-in fixed rate by rating and tenor (per cent, continuous compounding)."),
+  P("The data is all free. The overnight rate and its history come from the New York Fed [6], the futures from the CME through a delayed public feed, the swap rates from Pensford, and the corporate spreads and Treasury yields from FRED [7]. Inputs are range-checked before each build, and the finished curve is checked to reprice its inputs and to admit no arbitrage."),
 
-  H1("4. Data and validation"),
-  P("The overnight rate and its history come from the Federal Reserve Bank of New York [6]; the futures from the CME, through a delayed public source; the SOFR swap rates from Pensford's public rates feed; and the corporate spreads and Treasury yields from the St. Louis Fed's FRED [7]. All are free and end-of-day. Before each build the inputs pass range and consistency checks; after the build the curve is confirmed to reprice its inputs and to be arbitrage-free (discount factors strictly decreasing, so instantaneous forwards are non-negative); and if the swap feed is unreachable the build falls back to last-known values rather than failing."),
-
-  H1("5. Known limitations"),
-  P("The following are the constraints a reader should weigh before relying on the output. They are stated in full because, for a bootstrapping exercise on free data, the honest boundary of what the curve can and cannot support is the point."),
-  H2("5.1 Modelling and data"),
-  BUL("Curve capped at ten years. The public swap source publishes SOFR swaps only to ten years, so the model produces no rates beyond that point (it does not extrapolate)."),
-  BUL("Interpolation choice. Log-linear on discount factors gives piecewise-flat instantaneous forwards; a small futures reprice residual (at most about 0.15 bp, mean 0.02 bp) follows from the mismatch between the averaging convention of the futures and a flat forward. We confirmed its nature: the overnight-indexed swaps reprice exactly and the residual sits only on the futures, so it is an interpolation effect, not a convention error. A smoother (log-cubic) scheme does not converge on this instrument set, so log-linear is retained."),
-  BUL("Futures convexity is not corrected. Daily-margined futures imply a rate slightly above the equivalent forward; the omission is below a basis point in the first year and a few basis points by two and a half years [5]."),
-  BUL("Turn-of-year and quarter-end effects in overnight rates are not modelled; instruments whose accrual spans a turn are therefore slightly mispriced."),
-  BUL("Data is free, delayed, indicative, and drawn from several providers at slightly different times, which suits a reference calculation rather than execution."),
-  BUL("Credit overlay. A single maturity shape (from the investment-grade index) is applied to every rating; the high-yield long end is the least reliable region. The spreads are index-level references, not any specific borrower's spread."),
-  H2("5.2 Validation and reproducibility"),
-  BUL("Repricing verifies internal consistency only. The curve reproduces its own inputs by construction; this does not by itself confirm that the instrument conventions (day count, payment lag, futures dates) match those of the quoting source. Those conventions are set to the market standard but are assumed, not independently reconciled."),
-  BUL("No independent cross-validation. Results have not yet been checked against a second pricing engine or an analytic benchmark, which is the check that would catch a systematic set-up error the self-repricing cannot."),
-  BUL("Runs are not yet bit-reproducible. Because the inputs are fetched live, a given calibration is a snapshot; the raw quotes are not persisted, so an exact re-run after the fact is not currently possible."),
-  BUL("Single free providers. A provider changing or withdrawing an endpoint is a real risk (the swap provider moved its endpoint in 2026); a last-known fallback keeps the build running but degrades quality."),
-  P("A natural validation roadmap follows directly from the above: a test suite with a frozen input fixture and a golden-master repricing test; persistence of the raw input snapshot for reproducibility; and an independent cross-check against a second engine. None changes the methodology; each raises the confidence with which its output can be used."),
+  H1("7. Known limitations"),
+  P("Weigh these before using the curve. On free data, knowing the boundary is much of the exercise."),
+  H2("7.1 Modelling and data"),
+  BUL("The curve stops at ten years (Section 5) and is not extrapolated past the last node."),
+  BUL("Log-linear interpolation gives piecewise-flat forwards and a sub-basis-point futures residual, which we checked is an interpolation effect (Section 5)."),
+  BUL("The futures convexity adjustment is left at zero, a documented approximation."),
+  BUL("Turn-of-year and quarter-end spikes in the overnight rate are not modelled."),
+  BUL("The data is free, delayed, indicative, and pulled from several providers at slightly different times."),
+  BUL("The credit overlay reuses one investment-grade maturity shape for every rating; the high-yield long end is the weakest part, and the spreads are index averages, not any single borrower's."),
+  H2("7.2 Validation and reproducibility"),
+  BUL("Repricing shows internal consistency. The instrument conventions match the SOFR-OIS standard but are not reconciled against a second source."),
+  BUL("Nothing has been cross-checked against a second pricing engine or an analytic benchmark."),
+  BUL("Runs are not bit-reproducible: the inputs are fetched live and the raw quotes are not saved."),
+  BUL("The data rests on single free providers; the fallback keeps a run alive through an outage, but the result is worse."),
+  P("Three things would raise confidence without touching the method: a test suite on a frozen input fixture with a golden-master reprice, a saved snapshot of the raw inputs so a run reproduces exactly, and a cross-check against a second pricing engine."),
 
   H1("References"),
   REF(1, [txt("Ballabio, L. "), txt("Curve bootstrapping.", { italics: true }), txt(" The QuantLib Guide. https://www.quantlibguide.com/Curve%20bootstrapping.html")]),

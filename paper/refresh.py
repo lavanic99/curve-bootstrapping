@@ -25,21 +25,28 @@ data = {"asof": asof, "on": round(snap.overnight_sofr*100, 2), "labels": [t for 
         "spread": {r: [round((z(curves[r],m)-z(curves["SOFR"],m))*100) for _,m in TEN] for r in cc.RATINGS}}
 (HERE/"doc_data.json").write_text(json.dumps(data, indent=1))
 
+# Monochrome, academic (black & white) figures: grayscale + distinct markers.
 x = list(range(len(TEN))); labels = [t for t,_ in TEN]
-COL={"SOFR":"#1f4e79","AAA":"#1b5e20","AA":"#2e7d32","A":"#66bb6a","BBB":"#c9a227","BB":"#ef6c00","B":"#e64a19","CCC":"#c62828"}
-pct=FuncFormatter(lambda v,_:f"{v:.1f}%")
-fig,ax=plt.subplots(figsize=(7,3.4),dpi=150)
-ax.plot(x,data["sofr"],color=COL["SOFR"],lw=2,marker="o",ms=4)
+pct = FuncFormatter(lambda v,_: f"{v:.1f}%")
+GRAY = {"AAA":"0.62","AA":"0.54","A":"0.46","BBB":"0.38","BB":"0.27","B":"0.15","CCC":"0.0"}
+MK = {"SOFR":"o","AAA":"s","AA":"^","A":"D","BBB":"v","BB":"X","B":"P","CCC":"*"}
+def _style(ax):
+    ax.grid(True, color="0.85", lw=0.6); ax.set_axisbelow(True)
+    for s in ax.spines.values(): s.set_color("0.4")
+    ax.tick_params(colors="0.2")
+
+fig,ax=plt.subplots(figsize=(7,3.3),dpi=150)
+ax.plot(x,data["sofr"],color="black",lw=1.6,marker="o",ms=4,mfc="white",mec="black")
 ax.set_xticks(x); ax.set_xticklabels(labels); ax.yaxis.set_major_formatter(pct)
-ax.set_title(f"SOFR risk-free zero curve — {asof}",fontsize=11); ax.grid(alpha=.25); ax.set_ylabel("continuous zero rate")
+ax.set_title("SOFR risk-free zero curve",fontsize=10,color="black"); ax.set_ylabel("continuous zero rate"); _style(ax)
 for xi in (0,4,8): ax.annotate(f"{data['sofr'][xi]:.2f}%",(xi,data['sofr'][xi]),textcoords="offset points",xytext=(0,7),ha="center",fontsize=8)
 fig.tight_layout(); fig.savefig(HERE/"chart_sofr.png",bbox_inches="tight"); plt.close()
 
 fig,ax=plt.subplots(figsize=(7,4.0),dpi=150)
-ax.plot(x,data["sofr"],color=COL["SOFR"],lw=2,marker="o",ms=3,label="SOFR")
-for r in cc.RATINGS: ax.plot(x,data["allin"][r],color=COL[r],lw=1.7,marker="o",ms=3,label=r)
+ax.plot(x,data["sofr"],color="black",lw=1.4,ls="--",marker=MK["SOFR"],ms=3.5,mfc="white",label="SOFR")
+for r in cc.RATINGS: ax.plot(x,data["allin"][r],color=GRAY[r],lw=1.3,marker=MK[r],ms=3.5,label=r)
 ax.set_xticks(x); ax.set_xticklabels(labels); ax.yaxis.set_major_formatter(pct)
-ax.set_title(f"All-in fixed loan rate by rating — {asof}",fontsize=11); ax.grid(alpha=.25)
-ax.set_ylabel("continuous zero rate"); ax.legend(ncol=4,fontsize=8,loc="upper left")
+ax.set_title("All-in fixed loan rate by rating",fontsize=10,color="black"); ax.set_ylabel("continuous zero rate"); _style(ax)
+ax.legend(ncol=4,fontsize=8,loc="upper left",frameon=True,edgecolor="0.6")
 fig.tight_layout(); fig.savefig(HERE/"chart_allin.png",bbox_inches="tight"); plt.close()
 print("refreshed paper data + figures — asof", asof, "| O/N", data["on"])
